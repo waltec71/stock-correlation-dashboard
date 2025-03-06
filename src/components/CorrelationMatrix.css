@@ -1,0 +1,49 @@
+/* src/components/CorrelationMatrix.css */
+
+.correlation-matrix-container {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  .correlation-table {
+    font-size: 0.9rem;
+    text-align: center;
+  }
+  
+  .stock-header {
+    position: relative;
+    padding-right: 25px;
+    background-color: #f8f9fa;
+  }
+  
+  .remove-stock-btn {
+    position: absolute;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #dc3545;
+    font-weight: bold;
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: none;
+    padding: 0 5px;
+  }
+  
+  .stock-header:hover .remove-stock-btn {
+    display: block;
+  }
+  
+  .correlation-table td {
+    transition: all 0.2s ease;
+  }
+  
+  .selected-cell {
+    box-shadow: inset 0 0 0 2px #007bff;
+  }
+  
+  .correlation-details {
+    background-color: #f8f9fa;
+  }
