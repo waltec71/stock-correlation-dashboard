@@ -1,52 +1,44 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Spinner, Form, Button, Alert } from 'react-bootstrap';
+import { Table, Spinner, Alert } from 'react-bootstrap';
 import './CorrelationMatrix.css';
-import { getValidation, getCorrelations, getStockMetrics } from '../services/api.js';
+import { getCorrelations, getStockMetrics } from '../services/api.js';
 
-const CorrelationMatrix = () => {
-  const [stocks, setStocks] = useState(['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA']);
-  const [newStock, setNewStock] = useState('');
+const CorrelationMatrix = ({ allStocks, setAllStocks, selectedStocks, setSelectedStocks }) => {
   const [matrix, setMatrix] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCell, setSelectedCell] = useState(null);
   const [stockMetrics, setStockMetrics] = useState({});
   const [error, setError] = useState(null);
-  const [validating, setValidating] = useState(false);
-  const [loadingMetrics, setLoadingMetrics] = useState(false);
 
-  // Initialize the matrix when the component mounts
+  // Initialize the matrix when the component mounts or when selectedStocks changes
   useEffect(() => {
-    fetchCorrelationData(stocks);
-    fetchAllStockMetrics(stocks);
-  }, []);
+    if (selectedStocks.length > 0) {
+      fetchCorrelationData(selectedStocks);
+      fetchAllStockMetrics(selectedStocks);
+    } else {
+      setMatrix([]);
+      setLoading(false);
+    }
+  }, [selectedStocks]);
 
-  // Fetch beta and returns data for all stocks
+  // Fetch beta and returns data for stocks
   const fetchAllStockMetrics = async (stocksList) => {
     const metricsObj = {};
     
     try {
       for (const ticker of stocksList) {
-        const metrics = await getStockMetrics(ticker);
-        metricsObj[ticker] = metrics;
+        // Only fetch metrics we don't already have
+        if (!stockMetrics[ticker]) {
+          const metrics = await getStockMetrics(ticker);
+          metricsObj[ticker] = metrics;
+        } else {
+          metricsObj[ticker] = stockMetrics[ticker];
+        }
       }
       
       setStockMetrics(metricsObj);
     } catch (error) {
       console.error('Failed to fetch stock metrics:', error);
-      // Continue without metrics if there's an error
-    }
-  };
-
-  // Fetch beta and returns for a newly added stock
-  const fetchSingleStockMetrics = async (ticker) => {
-    try {
-      const metrics = await getStockMetrics(ticker);
-      setStockMetrics(prev => ({
-        ...prev,
-        [ticker]: metrics
-      }));
-    } catch (error) {
-      console.error(`Failed to fetch metrics for ${ticker}:`, error);
       // Continue without metrics if there's an error
     }
   };
@@ -106,39 +98,16 @@ const CorrelationMatrix = () => {
     }
   };
 
-  // New function to update the matrix when removing a stock (no API call)
-  const updateMatrixAfterRemoval = (stockIndex) => {
-    const newStocks = [...stocks];
-    newStocks.splice(stockIndex, 1);
-    
-    // If removing the last stock, set empty matrix
-    if (newStocks.length === 0) {
-      setMatrix([]);
-      return;
-    }
-    
-    // If only one stock remains, set a 1×1 matrix with value 1.0
-    if (newStocks.length === 1) {
-      setMatrix([[1.0]]);
-      return;
-    }
-    
-    // Otherwise, create a new matrix without the removed stock
-    const newMatrix = matrix.filter((_, i) => i !== stockIndex)
-                           .map(row => row.filter((_, j) => j !== stockIndex));
-    setMatrix(newMatrix);
-  };
-
   const handleRemoveStock = (index) => {
-    const stockToRemove = stocks[index];
-    const newStocks = [...stocks];
-    newStocks.splice(index, 1);
-    setStocks(newStocks);
+    const stockToRemove = selectedStocks[index];
     
-    // Update the matrix without making an API call
-    updateMatrixAfterRemoval(index);
+    // Remove from selected stocks
+    setSelectedStocks(selectedStocks.filter(stock => stock !== stockToRemove));
     
-    // Remove the stock from metrics object
+    // Also remove from all stocks
+    setAllStocks(allStocks.filter(stock => stock !== stockToRemove));
+    
+    // Remove from metrics
     setStockMetrics(prev => {
       const newMetrics = {...prev};
       delete newMetrics[stockToRemove];
@@ -147,58 +116,9 @@ const CorrelationMatrix = () => {
     
     // Clear selected cell if it involved the removed stock
     if (selectedCell && 
-        (stocks[index] === selectedCell.stockA || 
-         stocks[index] === selectedCell.stockB)) {
+        (selectedStocks[index] === selectedCell.stockA || 
+         selectedStocks[index] === selectedCell.stockB)) {
       setSelectedCell(null);
-    }
-  };
-
-  const handleAddStock = async (e) => {
-    e.preventDefault();
-    
-    if (!newStock) return;
-    
-    const ticker = newStock.toUpperCase();
-    
-    // Check if ticker already exists in the list
-    if (stocks.includes(ticker)) {
-      setError(`${ticker} is already in your list`);
-      return;
-    }
-    
-    setValidating(true);
-    setError(null);
-    
-    try {
-      // Validate the ticker before adding
-      const isValid = await getValidation(ticker);
-      
-      if (isValid) {
-        const updatedStocks = [...stocks, ticker];
-        setStocks(updatedStocks);
-        setNewStock('');
-        
-        // Fetch metrics for the new stock
-        fetchSingleStockMetrics(ticker);
-        
-        // Special case: If we're adding the first stock, just set a 1×1 matrix
-        if (stocks.length === 0) {
-          setMatrix([[1.0]]);
-          setLoading(false);
-          setValidating(false);
-          return;
-        }
-        
-        // Fetch updated correlation data
-        fetchCorrelationData(updatedStocks);
-      } else {
-        setError(`${ticker} is not a valid stock ticker`);
-      }
-    } catch (error) {
-      console.error('Error validating stock ticker:', error);
-      setError('Error validating stock ticker. Please try again.');
-    } finally {
-      setValidating(false);
     }
   };
 
@@ -221,35 +141,19 @@ const CorrelationMatrix = () => {
     if (rowIndex === colIndex) return; // Don't select diagonal cells
     
     setSelectedCell({
-      stockA: stocks[rowIndex],
-      stockB: stocks[colIndex],
+      stockA: selectedStocks[rowIndex],
+      stockB: selectedStocks[colIndex],
       correlation: matrix[rowIndex][colIndex]
     });
   };
 
   // Safety check for rendering
-  if (loading || !matrix || matrix.length === 0 || matrix.length !== stocks.length) {
+  if (loading || !matrix || matrix.length === 0 || matrix.length !== selectedStocks.length) {
     return (
       <div className="correlation-matrix-container">
         <h2>Stock Correlation Matrix</h2>
         
-        <Form onSubmit={handleAddStock} className="mb-3 d-flex">
-          <Form.Control
-            type="text"
-            placeholder="Add stock ticker (e.g., NFLX)"
-            value={newStock}
-            onChange={(e) => setNewStock(e.target.value.toUpperCase())}
-            className="me-2"
-            disabled={validating}
-          />
-          <Button type="submit" variant="primary" disabled={validating || !newStock}>
-            {validating ? 'Validating...' : 'Add'}
-          </Button>
-        </Form>
-        
-        {error && <Alert variant="danger">{error}</Alert>}
-        
-        {stocks.length === 0 ? (
+        {selectedStocks.length === 0 ? (
           <Alert variant="info">Add stocks to see their correlations</Alert>
         ) : (
           <div className="text-center my-5">
@@ -266,28 +170,13 @@ const CorrelationMatrix = () => {
     <div className="correlation-matrix-container">
       <h2>Stock Correlation Matrix</h2>
       <p>The following matrix shows pairwise correlation coefficients calculated using 5 years of weekly stock return data.</p>
-      <Form onSubmit={handleAddStock} className="mb-3 d-flex">
-        <Form.Control
-          type="text"
-          placeholder="Add stock ticker (e.g., NFLX)"
-          value={newStock}
-          onChange={(e) => setNewStock(e.target.value.toUpperCase())}
-          className="me-2"
-          disabled={validating}
-        />
-        <Button type="submit" variant="primary" disabled={validating || !newStock}>
-          {validating ? 'Validating...' : 'Add'}
-        </Button>
-      </Form>
-      
-      {error && <Alert variant="danger">{error}</Alert>}
       
       <div className="table-responsive">
         <Table bordered hover className="correlation-table">
           <thead>
             <tr>
               <th></th>
-              {stocks.map((stock, index) => (
+              {selectedStocks.map((stock, index) => (
                 <th key={index} className="stock-header">
                   {stock}
                   <button 
@@ -301,10 +190,10 @@ const CorrelationMatrix = () => {
             </tr>
           </thead>
           <tbody>
-            {stocks.map((rowStock, rowIndex) => (
+            {selectedStocks.map((rowStock, rowIndex) => (
               <tr key={rowIndex}>
                 <th className="stock-header">{rowStock}</th>
-                {stocks.map((colStock, colIndex) => {
+                {selectedStocks.map((colStock, colIndex) => {
                   // Double check we have valid data
                   const cellValue = matrix[rowIndex] && matrix[rowIndex][colIndex] !== undefined
                     ? matrix[rowIndex][colIndex]
@@ -319,8 +208,8 @@ const CorrelationMatrix = () => {
                         cursor: rowIndex !== colIndex && cellValue !== null ? 'pointer' : 'default'
                       }}
                       className={selectedCell && 
-                        selectedCell.stockA === stocks[rowIndex] && 
-                        selectedCell.stockB === stocks[colIndex] ? 
+                        selectedCell.stockA === selectedStocks[rowIndex] && 
+                        selectedCell.stockB === selectedStocks[colIndex] ? 
                         'selected-cell' : ''}
                     >
                       {cellValue !== null ? cellValue.toFixed(2) : 'N/A'}
@@ -333,7 +222,7 @@ const CorrelationMatrix = () => {
         </Table>
       </div>
       
-      {stocks.length === 1 && (
+      {selectedStocks.length === 1 && (
         <Alert variant="info" className="mt-3">
           Add more stocks to see correlation values. A single stock always has a correlation of 1.0 with itself.
         </Alert>

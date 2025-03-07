@@ -1,0 +1,61 @@
+/* src/components/StockSearch.css */
+
+.stock-search-container {
+    padding: 15px;
+    margin-bottom: 20px;
+  }
+  
+  .section-title {
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+    color: #2c3e50;
+  }
+  
+  .stock-checkbox-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  
+  .stock-checkbox-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 5px 10px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+  }
+  
+  .stock-checkbox-item:hover {
+    background-color: #e9ecef;
+  }
+  
+  .stock-checkbox-item input {
+    margin-right: 6px;
+  }
+  
+  .stock-checkbox-item label {
+    margin-bottom: 0;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  
+  .correlation-value {
+    font-weight: bold;
+    color: #0275d8;
+  }
+  
+  .correlation-slider {
+    width: 100%;
+    margin-bottom: 20px;
+  }
+  
+  .error-message {
+    color: #dc3545;
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+    background-color: rgba(220, 53, 69, 0.1);
+  }

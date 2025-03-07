@@ -1,14 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
 import ForceGraph2D from 'react-force-graph-2d';
 import './StockCorrelationGraph.css';
 import { getCorrelations } from '../services/api.js';
 
-const StockCorrelationGraph = ({ correlationCutoff = 0.5 }) => {
+const StockCorrelationGraph = ({ correlationCutoff = 0.5, allStocks, selectedStocks }) => {
   const [graphData, setGraphData] = useState({ nodes: [], links: [] });
-  const [allStocks, setAllStocks] = useState(['MSFT', 'GOOGL', 'AMZN', 'NVDA', 'AAPL', 'F']); // Default stocks
-  const [selectedStocks, setSelectedStocks] = useState(['MSFT', 'GOOGL', 'AMZN', 'NVDA', 'AAPL', 'F']);
-  const [newStock, setNewStock] = useState('');
   const [correlationData, setCorrelationData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -28,7 +24,7 @@ const StockCorrelationGraph = ({ correlationCutoff = 0.5 }) => {
         setLoading(true);
         
         const stockList = selectedStocks.join(',');
-        const stock_correlations = getCorrelations(stockList,stockList);
+        const stock_correlations = await getCorrelations(stockList, stockList);
         setCorrelationData(stock_correlations);
         
         // Process the data into graph format
@@ -127,42 +123,8 @@ const StockCorrelationGraph = ({ correlationCutoff = 0.5 }) => {
     return { nodes, links };
   };
 
-  // Add a new stock
-  const addStock = () => {
-    if (newStock && !allStocks.includes(newStock.toUpperCase())) {
-      const stockSymbol = newStock.toUpperCase();
-      setAllStocks([...allStocks, stockSymbol]);
-      setSelectedStocks([...selectedStocks, stockSymbol]);
-      setNewStock('');
-    }
-  };
-
-  // Toggle stock selection
-  const toggleStock = (ticker) => {
-    if (selectedStocks.includes(ticker)) {
-      setSelectedStocks(selectedStocks.filter(stock => stock !== ticker));
-    } else {
-      setSelectedStocks([...selectedStocks, ticker]);
-    }
-  };
-
-  // Select/Deselect all stocks
-  const toggleAllStocks = () => {
-    if (selectedStocks.length === allStocks.length) {
-      setSelectedStocks([]);
-    } else {
-      setSelectedStocks([...allStocks]);
-    }
-  };
-
   // Color the nodes
   const nodeColor = () => 'rgba(52, 152, 219, 0.8)'; // Updated to match the color scheme
-
-  // Handle form submission for adding new stock
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    addStock();
-  };
 
   return (
     <div className="stock-graph-container">
@@ -179,43 +141,6 @@ const StockCorrelationGraph = ({ correlationCutoff = 0.5 }) => {
           onChange={(e) => window.location.href = `?cutoff=${e.target.value}`}
           className="correlation-slider"
         />
-        
-        <div>
-          <h3 className="section-title">Add New Stock</h3>
-          <form onSubmit={handleSubmit} className="add-stock-form">
-            <input 
-              type="text" 
-              value={newStock} 
-              onChange={(e) => setNewStock(e.target.value)} 
-              placeholder="Enter stock symbol" 
-              className="stock-input"
-            />
-            <button type="submit" className="btn btn-primary">Add</button>
-          </form>
-        </div>
-        
-        <div>
-          <h3 className="section-title">Select Stocks</h3>
-          <button 
-            onClick={toggleAllStocks}
-            className="btn btn-secondary"
-          >
-            {selectedStocks.length === allStocks.length ? 'Deselect All' : 'Select All'}
-          </button>
-          <div className="stock-checkbox-container">
-            {allStocks.map(ticker => (
-              <div key={ticker} className="stock-checkbox-item">
-                <input 
-                  id={`stock-${ticker}`}
-                  type="checkbox" 
-                  checked={selectedStocks.includes(ticker)} 
-                  onChange={() => toggleStock(ticker)} 
-                />
-                <label htmlFor={`stock-${ticker}`}>{ticker}</label>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
       
       <div className="graph-container" ref={graphContainerRef}>
@@ -223,6 +148,10 @@ const StockCorrelationGraph = ({ correlationCutoff = 0.5 }) => {
           <div className="loading-indicator">
             <div className="loading-spinner"></div>
             Loading correlation data...
+          </div>
+        ) : selectedStocks.length === 0 ? (
+          <div className="no-data-message">
+            Please select at least one stock to display the correlation graph
           </div>
         ) : (
           <ForceGraph2D
@@ -337,19 +266,4 @@ const StockCorrelationGraph = ({ correlationCutoff = 0.5 }) => {
   );
 };
 
-// Use URL parameters to get the correlation cutoff
-const StockCorrelationGraphWithParams = () => {
-  // Get cutoff from URL query parameter
-  const getCorrelationCutoff = () => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const cutoff = parseFloat(urlParams.get('cutoff'));
-      return !isNaN(cutoff) ? cutoff : 0.5; // Default to 0.5 if not specified
-    }
-    return 0.5;
-  };
-
-  return <StockCorrelationGraph correlationCutoff={getCorrelationCutoff()} />;
-};
-
-export default StockCorrelationGraphWithParams;
+export default StockCorrelationGraph;
