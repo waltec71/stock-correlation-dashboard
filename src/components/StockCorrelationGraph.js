@@ -10,6 +10,23 @@ const StockCorrelationGraph = ({ correlationCutoff = 0.5, allStocks, selectedSto
   const [error, setError] = useState(null);
   const fgRef = useRef();
   const graphContainerRef = useRef(null);
+  const [localCorrelationCutoff, setLocalCorrelationCutoff] = useState(correlationCutoff);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleSliderChange = (e) => {
+    setLocalCorrelationCutoff(parseFloat(e.target.value));
+  };
+  
+  const handleSliderMouseUp = () => {
+    // Update URL parameter when slider is released
+    window.history.pushState({}, '', `?cutoff=${localCorrelationCutoff}`);
+    // Optionally reload if needed (if your app doesn't automatically react to URL changes)
+    window.location.href = `?cutoff=${localCorrelationCutoff}`;
+  };
+
+  useEffect(() => {
+    setLocalCorrelationCutoff(correlationCutoff);
+  }, [correlationCutoff]);
 
   // Fetch correlation data when selected stocks change
   useEffect(() => {
@@ -131,16 +148,18 @@ const StockCorrelationGraph = ({ correlationCutoff = 0.5, allStocks, selectedSto
       {error && <div className="error-message">{error}</div>}
       
       <div className="graph-controls">
-        <h3 className="section-title">Correlation Cutoff: <span className="correlation-value">{correlationCutoff}</span></h3>
-        <input 
-          type="range" 
-          min="0" 
-          max="1" 
-          step="0.05" 
-          value={correlationCutoff} 
-          onChange={(e) => window.location.href = `?cutoff=${e.target.value}`}
-          className="correlation-slider"
-        />
+      <h3 className="section-title">Correlation Cutoff: <span className="correlation-value">{localCorrelationCutoff}</span></h3>
+      <input 
+        type="range" 
+        min="0" 
+        max="1" 
+        step="0.05" 
+        value={localCorrelationCutoff} 
+        onChange={handleSliderChange}
+        onMouseUp={handleSliderMouseUp}
+        onTouchEnd={handleSliderMouseUp}
+        className="correlation-slider"
+      />
       </div>
       
       <div className="graph-container" ref={graphContainerRef}>

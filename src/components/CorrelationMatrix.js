@@ -179,12 +179,6 @@ const CorrelationMatrix = ({ allStocks, setAllStocks, selectedStocks, setSelecte
               {selectedStocks.map((stock, index) => (
                 <th key={index} className="stock-header">
                   {stock}
-                  <button 
-                    className="remove-stock-btn"
-                    onClick={() => handleRemoveStock(index)}
-                  >
-                    ×
-                  </button>
                 </th>
               ))}
             </tr>
