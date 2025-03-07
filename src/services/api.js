@@ -3,6 +3,7 @@
 import axios from 'axios';
 
 // Replace with your actual API Gateway URL
+//export const API_BASE_URL = process.env.aws_lambda_base_url;
 const API_BASE_URL = 'https://vm1x96ins8.execute-api.us-east-2.amazonaws.com/';
 
 // Create a configured axios instance

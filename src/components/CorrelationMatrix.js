@@ -265,7 +265,7 @@ const CorrelationMatrix = () => {
   return (
     <div className="correlation-matrix-container">
       <h2>Stock Correlation Matrix</h2>
-      <p>The following matrix shows pairwise correlation coefficients calculated using 5 years of weekly adjusted close data.</p>
+      <p>The following matrix shows pairwise correlation coefficients calculated using 5 years of weekly stock return data.</p>
       <Form onSubmit={handleAddStock} className="mb-3 d-flex">
         <Form.Control
           type="text"
