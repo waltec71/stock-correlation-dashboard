@@ -10,23 +10,6 @@ const StockCorrelationGraph = ({ correlationCutoff = 0.5, allStocks, selectedSto
   const [error, setError] = useState(null);
   const fgRef = useRef();
   const graphContainerRef = useRef(null);
-  const [localCorrelationCutoff, setLocalCorrelationCutoff] = useState(correlationCutoff);
-  const [isDragging, setIsDragging] = useState(false);
-
-  const handleSliderChange = (e) => {
-    setLocalCorrelationCutoff(parseFloat(e.target.value));
-  };
-  
-  const handleSliderMouseUp = () => {
-    // Update URL parameter when slider is released
-    window.history.pushState({}, '', `?cutoff=${localCorrelationCutoff}`);
-    // Optionally reload if needed (if your app doesn't automatically react to URL changes)
-    window.location.href = `?cutoff=${localCorrelationCutoff}`;
-  };
-
-  useEffect(() => {
-    setLocalCorrelationCutoff(correlationCutoff);
-  }, [correlationCutoff]);
 
   // Fetch correlation data when selected stocks change
   useEffect(() => {
@@ -59,55 +42,29 @@ const StockCorrelationGraph = ({ correlationCutoff = 0.5, allStocks, selectedSto
     fetchCorrelationData();
   }, [selectedStocks, correlationCutoff]);
 
-  // Set up node containment boundaries when the graph is ready
-  useEffect(() => {
-    const setupBoundaries = () => {
-      if (fgRef.current && graphContainerRef.current) {
-        const boundingRect = graphContainerRef.current.getBoundingClientRect();
-        
-        // Function to keep nodes within the container boundary
-        fgRef.current.d3Force('boundary', (alpha) => {
-          if (!fgRef.current || !graphData.nodes) return;
-          
-          const padding = 30; // Padding from the edge
-          const width = boundingRect.width;
-          const height = boundingRect.height;
-          
-          graphData.nodes.forEach(node => {
-            // Apply containment forces
-            if (node.x < padding) node.x = padding;
-            if (node.x > width - padding) node.x = width - padding;
-            if (node.y < padding) node.y = padding;
-            if (node.y > height - padding) node.y = height - padding;
-          });
-        });
-      }
-    };
-
-    setupBoundaries();
-    
-    // Re-setup boundaries if the window is resized
-    window.addEventListener('resize', setupBoundaries);
-    return () => window.removeEventListener('resize', setupBoundaries);
-  }, [graphData, fgRef, graphContainerRef]);
-
   // Process the correlation data into nodes and links
   const processCorrelationData = (data, selectedStocks, cutoff) => {
-    const stockSet = new Set();
+    const nodes = selectedStocks.map(ticker => ({
+      id: ticker,
+      name: ticker,
+      val: 1
+    }));
+    
     const links = [];
 
-    // Extract all unique stocks and valid links
+    // Extract valid links based on correlation cutoff
     data.forEach(item => {
       const source = item.ticker;
       const target = item.compared_ticker;
       const correlation = item.data;
       
-      // Only include stocks that are selected and avoid self-connections
-      if (source !== target && selectedStocks.includes(source) && selectedStocks.includes(target)) {
-        stockSet.add(source);
-        stockSet.add(target);
+      // Only include links between different stocks (avoid self-connections)
+      // and only if both stocks are in the selected list
+      if (source !== target && 
+          selectedStocks.includes(source) && 
+          selectedStocks.includes(target)) {
         
-        // Only add links for correlations above the cutoff
+        // Only add links for correlations that meet the cutoff threshold
         if (Math.abs(correlation) >= cutoff) {
           // Check if this link already exists (to avoid duplicates)
           const existingLink = links.find(link => 
@@ -121,45 +78,72 @@ const StockCorrelationGraph = ({ correlationCutoff = 0.5, allStocks, selectedSto
               target,
               value: correlation,
               // Set link color based on correlation (red for negative, green for positive)
-              color: correlation < 0 ? 'rgba(255,0,0,0.5)' : 'rgba(0,128,0,0.5)',
-              // Set link width based on correlation strength
-              width: Math.abs(correlation) * 3
+              color: correlation < 0 ? 'rgba(255,0,0,0.6)' : 'rgba(0,128,0,0.6)',
+              // Set link width based on correlation strength (not too thick)
+              width: Math.abs(correlation) * 1.5
             });
           }
         }
       }
     });
 
-    // Convert the set of stocks to nodes
-    const nodes = Array.from(stockSet).map(ticker => ({
-      id: ticker,
-      name: ticker,
-      val: 1 // You could adjust node size based on market cap, volume, etc.
-    }));
-
     return { nodes, links };
   };
 
-  // Color the nodes
-  const nodeColor = () => 'rgba(52, 152, 219, 0.8)'; // Updated to match the color scheme
+  // Color nodes a consistent blue
+  const nodeColor = () => '#3498db';
+  
+  // When the component mounts, configure the force simulation
+  useEffect(() => {
+    if (fgRef.current && graphData.nodes.length > 0) {
+      // Increase repulsion between nodes to prevent clustering
+      const chargeForce = fgRef.current.d3Force('charge');
+      if (chargeForce) {
+        chargeForce.strength(-120);
+      }
+      
+      // Instead of collision force, we'll use stronger repulsion and more distance
+      // Adjust the link distance to keep nodes more separated
+      const linkForce = fgRef.current.d3Force('link');
+      if (linkForce) {
+        linkForce.distance(80); // Keep nodes at a good distance
+      }
+      
+      // Perform initial zoom-to-fit with a delay to ensure proper rendering
+      setTimeout(() => {
+        if (fgRef.current) {
+          fgRef.current.zoomToFit(400);
+        }
+      }, 500);
+    }
+  }, [graphData.nodes.length]);
+
+  // Disable automatic zoom after user interaction
+  const [userInteracted, setUserInteracted] = useState(false);
+  
+  const handleNodeDrag = () => {
+    setUserInteracted(true);
+  };
 
   return (
     <div className="stock-graph-container">
       {error && <div className="error-message">{error}</div>}
       
       <div className="graph-controls">
-      <h3 className="section-title">Correlation Cutoff: <span className="correlation-value">{localCorrelationCutoff}</span></h3>
-      <input 
-        type="range" 
-        min="0" 
-        max="1" 
-        step="0.05" 
-        value={localCorrelationCutoff} 
-        onChange={handleSliderChange}
-        onMouseUp={handleSliderMouseUp}
-        onTouchEnd={handleSliderMouseUp}
-        className="correlation-slider"
-      />
+        <h3 className="section-title">Correlation Cutoff: <span className="correlation-value">{correlationCutoff}</span></h3>
+        <input 
+          type="range" 
+          min="0" 
+          max="1" 
+          step="0.05" 
+          value={correlationCutoff} 
+          onChange={(e) => window.location.href = `?cutoff=${e.target.value}`}
+          className="correlation-slider"
+        />
+        <p className="mt-2 text-muted">
+          Only connections with correlation magnitude ≥ {correlationCutoff} are shown.
+          Green lines indicate positive correlation, red lines indicate negative correlation.
+        </p>
       </div>
       
       <div className="graph-container" ref={graphContainerRef}>
@@ -176,110 +160,99 @@ const StockCorrelationGraph = ({ correlationCutoff = 0.5, allStocks, selectedSto
           <ForceGraph2D
             ref={fgRef}
             graphData={graphData}
-            nodeRelSize={6}
+            nodeRelSize={6}     // Increased node size for better visibility
             nodeLabel="name"
             nodeColor={nodeColor}
             linkWidth="width"
             linkColor="color"
-            linkDirectionalArrowLength={0}
-            linkCurvature={0.25}
-            // Keep nodes within container
-            onNodeDragEnd={(node) => {
-              if (!graphContainerRef.current) return;
-              
-              const rect = graphContainerRef.current.getBoundingClientRect();
-              const padding = 30;
-              
-              if (node.x < padding) node.x = padding;
-              if (node.x > rect.width - padding) node.x = rect.width - padding;
-              if (node.y < padding) node.y = padding;
-              if (node.y > rect.height - padding) node.y = rect.height - padding;
-            }}
-            // Add labels to the links (correlation values)
-            linkCanvasObjectMode={() => 'after'}
-            linkCanvasObject={(link, ctx, globalScale) => {
-              const start = link.source;
-              const end = link.target;
-              
-              // Only proceed if source and target are proper objects
-              if (!start || !end || typeof start.x !== 'number' || typeof end.x !== 'number') return;
-              
-              // Get the positions of source and target
-              const x = start.x + (end.x - start.x) * 0.5;
-              const y = start.y + (end.y - start.y) * 0.5;
-              
-              // Scale the font based on zoom level
-              const fontSize = 12 / globalScale;
-              
-              // Format the correlation value
-              const correlation = typeof link.value === 'number' ? link.value.toFixed(2) : link.value;
-              
-              // Draw the text
-              ctx.font = `${fontSize}px 'Segoe UI', sans-serif`;
-              ctx.fillStyle = 'black';
-              ctx.textAlign = 'center';
-              ctx.textBaseline = 'middle';
-              
-              // Background for better readability
-              const textWidth = ctx.measureText(correlation).width;
-              const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.2);
-              
-              ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-              ctx.fillRect(
-                x - bckgDimensions[0] / 2,
-                y - bckgDimensions[1] / 2,
-                bckgDimensions[0],
-                bckgDimensions[1]
-              );
-              
-              // Draw the text
-              ctx.fillStyle = 'black';
-              ctx.fillText(correlation, x, y);
-            }}
+            linkCurvature={0.1}  // Slight curve for visibility
+            cooldownTicks={100}
+            onNodeDrag={handleNodeDrag}
+            
+            // Custom node rendering with proper size
             nodeCanvasObject={(node, ctx, globalScale) => {
               const label = node.id;
               const fontSize = 12/globalScale;
               ctx.font = `${fontSize}px 'Segoe UI', sans-serif`;
               const textWidth = ctx.measureText(label).width;
               const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.2);
-
-              // Draw node with slightly larger size
+            
+              // Draw node with better size
               ctx.fillStyle = nodeColor(node);
               ctx.beginPath();
-              ctx.arc(node.x, node.y, 6, 0, 2 * Math.PI, false);
+              ctx.arc(node.x, node.y, 6, 0, 2 * Math.PI, false);  // Increased size to match nodeRelSize
               ctx.fill();
-
-              // Add a subtle shadow
-              ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
-              ctx.shadowBlur = 5;
-              ctx.shadowOffsetX = 2;
-              ctx.shadowOffsetY = 2;
-
-              // Draw text background
+            
+              // Draw text background with a slight offset to avoid overlap with the node
               ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
               ctx.fillRect(
                 node.x - bckgDimensions[0] / 2,
-                node.y - bckgDimensions[1] / 2,
+                node.y - bckgDimensions[1] / 2 - 12, // Place the label above the node
                 bckgDimensions[0],
                 bckgDimensions[1]
               );
-
-              // Reset shadow for text
-              ctx.shadowColor = 'transparent';
-              ctx.shadowBlur = 0;
-              ctx.shadowOffsetX = 0;
-              ctx.shadowOffsetY = 0;
-
+            
               // Draw text
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
               ctx.fillStyle = '#2c3e50';
-              ctx.fillText(label, node.x, node.y);
+              ctx.fillText(label, node.x, node.y - 12); // Position text in the background
             }}
-            cooldownTicks={100}
-            onEngineStop={() => fgRef.current.zoomToFit(400)}
+            
+            // Custom link labels with improved appearance
+            linkCanvasObjectMode={() => 'after'}
+            linkCanvasObject={(link, ctx, globalScale) => {
+              // Only draw labels if we have valid source and target
+              if (!link.source || !link.target || 
+                  typeof link.source.x !== 'number' || 
+                  typeof link.target.x !== 'number') return;
+              
+              // Calculate position for the label (midpoint of the link)
+              const x = link.source.x + (link.target.x - link.source.x) * 0.5;
+              const y = link.source.y + (link.target.y - link.source.y) * 0.5;
+              
+              // Adjust font size based on zoom level - keep it smaller
+              const fontSize = 10 / globalScale;
+              
+              // Format the correlation value with 2 decimal places
+              const correlation = typeof link.value === 'number' ? 
+                link.value.toFixed(2) : link.value;
+              
+              // Draw label with subtle background
+              ctx.font = `${fontSize}px Arial`;
+              const textWidth = ctx.measureText(correlation).width;
+              const padding = fontSize * 0.3;
+              const bgWidth = textWidth + padding * 2;
+              const bgHeight = fontSize + padding;
+              
+              // Draw background with subtle appearance
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+              ctx.fillRect(
+                x - bgWidth / 2,
+                y - bgHeight / 2,
+                bgWidth,
+                bgHeight
+              );
+              
+              // Draw correlation value
+              ctx.fillStyle = link.value < 0 ? '#d63031' : '#27ae60';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(correlation, x, y);
+            }}
+            
+            // Only zoom to fit on initial render, not after user interaction
+            onEngineStop={() => {
+              if (fgRef.current && !userInteracted) {
+                fgRef.current.zoomToFit(400, 50);
+              }
+            }}
           />
         )}
+      </div>
+      
+      <div className="mt-3 text-muted">
+        <p><small>Drag nodes to adjust the layout. Drag the background to pan, scroll to zoom.</small></p>
       </div>
     </div>
   );
