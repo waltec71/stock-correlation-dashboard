@@ -10,6 +10,7 @@ import './App.css';
 
 function App() {
   // Define the shared stock state at the App level
+  document.title = 'Stock Correlations'
   const [allStocks, setAllStocks] = useState(['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'F']);
   const [selectedStocks, setSelectedStocks] = useState(['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'F']);
   // Add state for correlation cutoff with default value 0.6
