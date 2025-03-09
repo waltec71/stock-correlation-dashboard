@@ -3,15 +3,21 @@ import ForceGraph2D from 'react-force-graph-2d';
 import './StockCorrelationGraph.css';
 import { getCorrelations } from '../services/api.js';
 
-const StockCorrelationGraph = ({ correlationCutoff = 0.5, allStocks, selectedStocks }) => {
+const StockCorrelationGraph = ({ correlationCutoff = 0.5, setCorrelationCutoff, allStocks, selectedStocks }) => {
   const [graphData, setGraphData] = useState({ nodes: [], links: [] });
   const [correlationData, setCorrelationData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [localCorrelationCutoff, setLocalCorrelationCutoff] = useState(correlationCutoff);
   const fgRef = useRef();
   const graphContainerRef = useRef(null);
 
-  // Fetch correlation data when selected stocks change
+  // Update local state when the prop changes
+  useEffect(() => {
+    setLocalCorrelationCutoff(correlationCutoff);
+  }, [correlationCutoff]);
+
+  // Fetch correlation data when selected stocks change or when the cutoff is confirmed by releasing the slider
   useEffect(() => {
     const fetchCorrelationData = async () => {
       if (selectedStocks.length === 0) {
@@ -65,7 +71,7 @@ const StockCorrelationGraph = ({ correlationCutoff = 0.5, allStocks, selectedSto
           selectedStocks.includes(target)) {
         
         // Only add links for correlations that meet the cutoff threshold
-        if (Math.abs(correlation) >= cutoff) {
+        if (correlation >= cutoff) {
           // Check if this link already exists (to avoid duplicates)
           const existingLink = links.find(link => 
             (link.source === source && link.target === target) || 
@@ -78,9 +84,9 @@ const StockCorrelationGraph = ({ correlationCutoff = 0.5, allStocks, selectedSto
               target,
               value: correlation,
               // Set link color based on correlation (red for negative, green for positive)
-              color: correlation < 0 ? 'rgba(255,0,0,0.6)' : 'rgba(0,128,0,0.6)',
+              color: 'rgba(0,128,0,0.6)',
               // Set link width based on correlation strength (not too thick)
-              width: Math.abs(correlation) * 1.5
+              width: 1.2
             });
           }
         }
@@ -125,23 +131,38 @@ const StockCorrelationGraph = ({ correlationCutoff = 0.5, allStocks, selectedSto
     setUserInteracted(true);
   };
 
+  // Update local state while dragging
+  const handleCorrelationChange = (e) => {
+    setLocalCorrelationCutoff(parseFloat(e.target.value));
+  };
+  
+  // Update parent state only when mouse is released
+  const handleCorrelationChangeComplete = () => {
+    setCorrelationCutoff(localCorrelationCutoff);
+  };
+
   return (
     <div className="stock-graph-container">
       {error && <div className="error-message">{error}</div>}
       
       <div className="graph-controls">
-        <h3 className="section-title">Correlation Cutoff: <span className="correlation-value">{correlationCutoff}</span></h3>
+        <h3 className="section-title">Correlation Cutoff: <span className="correlation-value">{localCorrelationCutoff}</span></h3>
         <input 
           type="range" 
           min="0" 
           max="1" 
           step="0.05" 
-          value={correlationCutoff} 
-          onChange={(e) => window.location.href = `?cutoff=${e.target.value}`}
+          value={localCorrelationCutoff} 
+          onChange={handleCorrelationChange}
+          onMouseUp={handleCorrelationChangeComplete}
+          onTouchEnd={handleCorrelationChangeComplete}
           className="correlation-slider"
         />
         <p className="mt-2 text-muted">
-          Only connections with correlation magnitude ≥ {correlationCutoff} are shown.
+          Only connections with correlation magnitude ≥ {localCorrelationCutoff} are shown.
+          {localCorrelationCutoff !== correlationCutoff && 
+            <span className="text-primary"> (Release to update graph)</span>}
+          <br/>
           Green lines indicate positive correlation, red lines indicate negative correlation.
         </p>
       </div>

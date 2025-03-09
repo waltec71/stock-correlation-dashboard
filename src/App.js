@@ -12,16 +12,8 @@ function App() {
   // Define the shared stock state at the App level
   const [allStocks, setAllStocks] = useState(['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'F']);
   const [selectedStocks, setSelectedStocks] = useState(['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'F']);
-
-  // Get correlation cutoff from URL params
-  const getCorrelationCutoff = () => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const cutoff = parseFloat(urlParams.get('cutoff'));
-      return !isNaN(cutoff) ? cutoff : 0.6; // Default to 0.6 if not specified
-    }
-    return 0.6;
-  };
+  // Add state for correlation cutoff with default value 0.6
+  const [correlationCutoff, setCorrelationCutoff] = useState(0.6);
 
   return (
     <div className="App">
@@ -50,7 +42,8 @@ function App() {
             <Card className="mb-4">
               <Card.Body>
                 <StockCorrelationGraph 
-                  correlationCutoff={getCorrelationCutoff()} 
+                  correlationCutoff={correlationCutoff}
+                  setCorrelationCutoff={setCorrelationCutoff}
                   allStocks={allStocks}
                   selectedStocks={selectedStocks}
                 />
