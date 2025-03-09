@@ -144,7 +144,9 @@ const StockCorrelationGraph = ({ correlationCutoff = 0.5, setCorrelationCutoff, 
   return (
     <div className="stock-graph-container">
       {error && <div className="error-message">{error}</div>}
-      
+      <h2>Stock Correlation Graph
+      <br/>
+      </h2>
       <div className="graph-controls">
         <h3 className="section-title">Correlation Cutoff: <span className="correlation-value">{localCorrelationCutoff}</span></h3>
         <input 
@@ -159,11 +161,11 @@ const StockCorrelationGraph = ({ correlationCutoff = 0.5, setCorrelationCutoff, 
           className="correlation-slider"
         />
         <p className="mt-2 text-muted">
-          Only connections with correlation magnitude ≥ {localCorrelationCutoff} are shown.
+          Only connections with correlation {'>'} {localCorrelationCutoff} are shown.
           {localCorrelationCutoff !== correlationCutoff && 
             <span className="text-primary"> (Release to update graph)</span>}
-          <br/>
-          Green lines indicate positive correlation, red lines indicate negative correlation.
+
+
         </p>
       </div>
       

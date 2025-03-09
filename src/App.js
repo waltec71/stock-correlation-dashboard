@@ -18,7 +18,7 @@ function App() {
   return (
     <div className="App">
       <Container fluid>
-        <h1 className="my-4">Stock Correlation Network</h1>
+        <h1 className="my-4">Stock Correlations</h1>
         
         <Row>
           <Col md={3}>
@@ -65,7 +65,9 @@ function App() {
       </Container>
       
       <footer className="App-footer">
-        <p>waltec71 will never steer you wrong</p>
+        <p>
+          <br></br>
+        </p>
       </footer>
     </div>
   );
